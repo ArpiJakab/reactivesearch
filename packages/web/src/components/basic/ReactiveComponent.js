@@ -6,6 +6,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	pushToAndClause,
@@ -19,10 +20,9 @@ import { connect } from '../../utils';
 class ReactiveComponent extends Component {
 	constructor(props) {
 		super(props);
-
 		this.internalComponent = null;
-
-		const { onQueryChange = null } = props;
+		this.defaultQuery = null;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 
 		this.setQuery = (obj) => {
 			this.props.updateQuery({
@@ -30,7 +30,6 @@ class ReactiveComponent extends Component {
 				componentId: props.componentId,
 				label: props.filterLabel,
 				showFilter: props.showFilter,
-				onQueryChange,
 				URLParams: props.URLParams,
 			});
 		};
@@ -50,7 +49,8 @@ class ReactiveComponent extends Component {
 
 		// set query for internal component
 		if (this.internalComponent && this.props.defaultQuery) {
-			const { query, ...queryOptions } = this.props.defaultQuery();
+			this.defaultQuery = this.props.defaultQuery();
+			const { query, ...queryOptions } = this.defaultQuery || {};
 
 			if (queryOptions) {
 				this.props.setQueryOptions(this.internalComponent, queryOptions, false);
@@ -72,6 +72,26 @@ class ReactiveComponent extends Component {
 			)
 		) {
 			nextProps.onAllData(parseHits(nextProps.hits), nextProps.aggregations);
+		}
+
+		if (
+			nextProps.defaultQuery
+			&& !isEqual(
+				nextProps.defaultQuery(),
+				this.defaultQuery,
+			)
+		) {
+			this.defaultQuery = nextProps.defaultQuery();
+			const { query, ...queryOptions } = this.defaultQuery || {};
+
+			if (queryOptions) {
+				nextProps.setQueryOptions(this.internalComponent, queryOptions, false);
+			}
+
+			nextProps.updateQuery({
+				componentId: this.internalComponent,
+				query: query || null,
+			});
 		}
 	}
 
@@ -127,6 +147,7 @@ ReactiveComponent.defaultProps = {
 ReactiveComponent.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -141,7 +162,7 @@ ReactiveComponent.propTypes = {
 	onQueryChange: types.func,
 	react: types.react,
 	showFilter: types.bool,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 	onAllData: types.func,
 };
 
@@ -162,6 +183,8 @@ const mapDispatchtoProps = dispatch => ({
 		props,
 		execute,
 	)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });

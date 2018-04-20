@@ -7,6 +7,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -49,6 +50,7 @@ class GeoDistanceSlider extends Component {
 		if (props.autoLocation) {
 			this.getUserLocation();
 		}
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -206,6 +208,12 @@ class GeoDistanceSlider extends Component {
 				this.getCoordinates(currentValue.value, () => {
 					if (this.state.currentDistance) {
 						this.updateQuery(this.state.currentDistance);
+						if (props.onValueChange) {
+							props.onValueChange({
+								distance: this.state.currentDistance,
+								location: currentValue.value,
+							});
+						}
 					}
 					this.locked = false;
 				});
@@ -216,7 +224,6 @@ class GeoDistanceSlider extends Component {
 			props.componentId,
 			{ distance: this.state.currentDistance, location: currentValue.value },
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
@@ -233,7 +240,6 @@ class GeoDistanceSlider extends Component {
 
 	updateQuery = (distance, props = this.props) => {
 		const query = props.customQuery || this.defaultQuery;
-		const { onQueryChange = null } = props;
 
 		let value = null;
 		if (distance && this.state.currentLocation) {
@@ -250,7 +256,6 @@ class GeoDistanceSlider extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -440,6 +445,7 @@ class GeoDistanceSlider extends Component {
 GeoDistanceSlider.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -461,7 +467,7 @@ GeoDistanceSlider.propTypes = {
 	showFilter: types.bool,
 	style: types.style,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 	unit: types.string,
 	showIcon: types.bool,
 	onBlur: types.func,
@@ -506,6 +512,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(

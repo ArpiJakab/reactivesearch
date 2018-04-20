@@ -185,6 +185,7 @@ class MultiDataList extends Component {
 			}, () => {
 				this.updateQuery(finalValues, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(finalValues);
 			});
 		};
 
@@ -192,15 +193,12 @@ class MultiDataList extends Component {
 			props.componentId,
 			finalValues,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
 		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
 
 		// find the corresponding value of the label for running the query
 		const queryValue = value.reduce((acc, item) => {
@@ -217,7 +215,6 @@ class MultiDataList extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -321,6 +318,7 @@ class MultiDataList extends Component {
 MultiDataList.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -346,7 +344,7 @@ MultiDataList.propTypes = {
 	style: types.style,
 	themePreset: types.themePreset,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 MultiDataList.defaultProps = {

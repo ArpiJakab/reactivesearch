@@ -5,6 +5,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -35,6 +36,7 @@ class RangeSlider extends Component {
 
 		this.locked = false;
 		this.internalComponent = `${this.props.componentId}__internal`;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -44,13 +46,14 @@ class RangeSlider extends Component {
 		this.updateQueryOptions(this.props);
 		this.setReact(this.props);
 
-		if (this.props.selectedValue) {
-			this.handleChange(this.props.selectedValue);
-		} else if (this.props.defaultSelected) {
-			this.handleChange([
-				this.props.defaultSelected.start,
-				this.props.defaultSelected.end,
-			]);
+		const { selectedValue, defaultSelected } = this.props;
+		if (Array.isArray(selectedValue)) {
+			this.handleChange(selectedValue);
+		} else if (selectedValue) {
+			// for value as an object for SSR
+			this.handleChange(RangeSlider.parseValue(selectedValue, this.props));
+		} else if (defaultSelected) {
+			this.handleChange(RangeSlider.parseValue(defaultSelected, this.props));
 		}
 	}
 
@@ -116,7 +119,12 @@ class RangeSlider extends Component {
 		}
 	};
 
-	defaultQuery = (value, props) => {
+	static parseValue = (value, props) => (value
+		? [value.start, value.end]
+		: [props.range.start, props.range.end]
+	)
+
+	static defaultQuery = (value, props) => {
 		if (Array.isArray(value) && value.length) {
 			return {
 				range: {
@@ -183,6 +191,12 @@ class RangeSlider extends Component {
 			}, () => {
 				this.updateQuery([currentValue[0], currentValue[1]], props);
 				this.locked = false;
+				if (props.onValueChange) {
+					props.onValueChange({
+						start: currentValue[0],
+						end: currentValue[1],
+					});
+				}
 			});
 		};
 		checkValueChange(
@@ -192,7 +206,6 @@ class RangeSlider extends Component {
 				end: currentValue[1],
 			},
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
@@ -211,9 +224,7 @@ class RangeSlider extends Component {
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || RangeSlider.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -222,7 +233,6 @@ class RangeSlider extends Component {
 			label: props.filterLabel,
 			showFilter: false, // disable filters for RangeSlider
 			URLParams: props.URLParams,
-			onQueryChange,
 		});
 	};
 
@@ -234,7 +244,7 @@ class RangeSlider extends Component {
 
 			props.setQueryOptions(this.internalComponent, queryOptions, false);
 
-			const query = props.customQuery || this.defaultQuery;
+			const query = props.customQuery || RangeSlider.defaultQuery;
 
 			props.updateQuery({
 				componentId: this.internalComponent,
@@ -297,6 +307,7 @@ class RangeSlider extends Component {
 RangeSlider.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -324,7 +335,7 @@ RangeSlider.propTypes = {
 	stepValue: types.number,
 	style: types.style,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 RangeSlider.defaultProps = {
@@ -356,9 +367,10 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props, execute) =>
 		dispatch(setQueryOptions(component, props, execute)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
-	watchComponent: (component, react) =>
-		dispatch(watchComponent(component, react)),
+	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(RangeSlider);

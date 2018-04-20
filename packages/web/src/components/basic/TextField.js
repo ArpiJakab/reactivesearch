@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	debounce,
@@ -14,7 +15,9 @@ import {
 } from '@appbaseio/reactivecore/lib/utils/helper';
 import types from '@appbaseio/reactivecore/lib/utils/types';
 
-import Input from '../../styles/Input';
+import Input, { suggestionsContainer } from '../../styles/Input';
+import InputIcon from '../../styles/InputIcon';
+import CancelSvg from '../shared/CancelSvg';
 import Title from '../../styles/Title';
 import Container from '../../styles/Container';
 import { connect } from '../../utils';
@@ -23,11 +26,11 @@ class TextField extends Component {
 	constructor(props) {
 		super(props);
 
-		this.type = 'match';
 		this.state = {
-			currentValue: '',
+			currentValue: props.selectedValue || '',
 		};
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -74,10 +77,10 @@ class TextField extends Component {
 		}
 	}
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		if (value && value.trim() !== '') {
 			return {
-				[this.type]: {
+				match: {
 					[props.dataField]: value,
 				},
 			};
@@ -107,21 +110,19 @@ class TextField extends Component {
 					this.handleTextChange(value);
 				}
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 		checkValueChange(
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || TextField.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -129,7 +130,6 @@ class TextField extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -138,25 +138,56 @@ class TextField extends Component {
 		this.setValue(e.target.value);
 	};
 
+	clearValue = () => {
+		this.setValue('', true);
+	};
+
+	renderCancelIcon = () => {
+		if (this.props.showClear) {
+			return this.props.clearIcon || <CancelSvg />;
+		}
+		return null;
+	}
+
+	renderIcons = () => (
+		<div>
+			{
+				this.state.currentValue && this.props.showClear
+				&& (
+					<InputIcon
+						onClick={this.clearValue}
+						iconPosition="right"
+					>
+						{this.renderCancelIcon()}
+					</InputIcon>
+				)
+			}
+		</div>
+	);
+
 	render() {
 		return (
 			<Container style={this.props.style} className={this.props.className}>
 				{this.props.title && <Title className={getClassName(this.props.innerClass, 'title') || null}>{this.props.title}</Title>}
-				<Input
-					type="text"
-					className={getClassName(this.props.innerClass, 'input') || null}
-					placeholder={this.props.placeholder}
-					onChange={this.handleChange}
-					value={this.state.currentValue}
-					onBlur={this.props.onBlur}
-					onFocus={this.props.onFocus}
-					onKeyPress={this.props.onKeyPress}
-					onKeyDown={this.props.onKeyDown}
-					onKeyUp={this.props.onKeyUp}
-					autoFocus={this.props.autoFocus}
-					innerRef={this.props.innerRef}
-					themePreset={this.props.themePreset}
-				/>
+				<div className={suggestionsContainer}>
+					<Input
+						type="text"
+						className={getClassName(this.props.innerClass, 'input') || null}
+						placeholder={this.props.placeholder}
+						onChange={this.handleChange}
+						value={this.state.currentValue}
+						onBlur={this.props.onBlur}
+						onFocus={this.props.onFocus}
+						onKeyPress={this.props.onKeyPress}
+						onKeyDown={this.props.onKeyDown}
+						onKeyUp={this.props.onKeyUp}
+						autoFocus={this.props.autoFocus}
+						innerRef={this.props.innerRef}
+						themePreset={this.props.themePreset}
+						showClear={this.props.showClear}
+					/>
+					{this.renderIcons()}
+				</div>
 			</Container>
 		);
 	}
@@ -165,6 +196,7 @@ class TextField extends Component {
 TextField.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -172,6 +204,7 @@ TextField.propTypes = {
 	autoFocus: types.bool,
 	beforeValueChange: types.func,
 	className: types.string,
+	clearIcon: types.children,
 	componentId: types.stringRequired,
 	customQuery: types.func,
 	dataField: types.stringRequired,
@@ -190,17 +223,19 @@ TextField.propTypes = {
 	placeholder: types.string,
 	react: types.react,
 	ref: types.func,
+	showClear: types.bool,
 	showFilter: types.bool,
 	style: types.style,
 	themePreset: types.themePreset,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 TextField.defaultProps = {
 	className: null,
 	debounce: 0,
 	placeholder: 'Search',
+	showClear: false,
 	showFilter: true,
 	style: {},
 	URLParams: false,
@@ -217,6 +252,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(TextField);

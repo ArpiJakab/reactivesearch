@@ -6,6 +6,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -35,6 +36,7 @@ class MultiDropdownList extends Component {
 		};
 		this.locked = false;
 		this.internalComponent = `${props.componentId}__internal`;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -116,10 +118,15 @@ class MultiDropdownList extends Component {
 		}
 	};
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		let query = null;
 		const type = props.queryFormat === 'or' ? 'terms' : 'term';
-		if (this.props.selectAllLabel && value.includes(this.props.selectAllLabel)) {
+
+		if (!Array.isArray(value) || value.length === 0) {
+			return null;
+		}
+
+		if (props.selectAllLabel && value.includes(props.selectAllLabel)) {
 			if (props.showMissing) {
 				query = { match_all: {} };
 			} else {
@@ -239,6 +246,7 @@ class MultiDropdownList extends Component {
 			}, () => {
 				this.updateQuery(finalValues, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(finalValues);
 			});
 		};
 
@@ -246,15 +254,12 @@ class MultiDropdownList extends Component {
 			props.componentId,
 			finalValues,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || MultiDropdownList.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -262,23 +267,28 @@ class MultiDropdownList extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
 
-	updateQueryOptions = (props) => {
+	static generateQueryOptions(props) {
 		const queryOptions = getQueryOptions(props);
 		queryOptions.aggs = {
 			[props.dataField]: {
 				terms: {
 					field: props.dataField,
 					size: props.size,
-					order: getAggsOrder(props.sortBy),
+					order: getAggsOrder(props.sortBy || 'count'),
 					...(props.showMissing ? { missing: props.missingLabel } : {}),
 				},
 			},
 		};
+
+		return queryOptions;
+	}
+
+	updateQueryOptions = (props) => {
+		const queryOptions = MultiDropdownList.generateQueryOptions(props);
 		props.setQueryOptions(this.internalComponent, queryOptions);
 	};
 
@@ -323,6 +333,7 @@ class MultiDropdownList extends Component {
 MultiDropdownList.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -351,7 +362,7 @@ MultiDropdownList.propTypes = {
 	style: types.style,
 	themePreset: types.themePreset,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 	showMissing: types.bool,
 	missingLabel: types.string,
 };
@@ -381,6 +392,8 @@ const mapDispatchtoProps = dispatch => ({
 	addComponent: component => dispatch(addComponent(component)),
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props) => dispatch(setQueryOptions(component, props)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });

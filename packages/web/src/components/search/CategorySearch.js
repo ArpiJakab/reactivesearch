@@ -8,6 +8,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	debounce,
@@ -22,6 +23,7 @@ import types from '@appbaseio/reactivecore/lib/utils/types';
 import getSuggestions from '@appbaseio/reactivecore/lib/utils/suggestions';
 import Title from '../../styles/Title';
 import Input, { suggestionsContainer, suggestions } from '../../styles/Input';
+import CancelSvg from '../shared/CancelSvg';
 import SearchSvg from '../shared/SearchSvg';
 import InputIcon from '../../styles/InputIcon';
 import Container from '../../styles/Container';
@@ -49,6 +51,7 @@ class CategorySearch extends Component {
 		};
 		this.internalComponent = `${props.componentId}__internal`;
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -58,7 +61,7 @@ class CategorySearch extends Component {
 
 		let size = this.props.resultSize ? this.props.resultSize : 20;
 		if (this.props.highlight) {
-			const queryOptions = this.highlightQuery(this.props);
+			const queryOptions = CategorySearch.highlightQuery(this.props);
 			queryOptions.size = size;
 			if (this.props.resultFields) {
 				queryOptions._source = this.props.resultFields;
@@ -89,7 +92,7 @@ class CategorySearch extends Component {
 			nextProps,
 			['highlight', 'dataField', 'highlightField'],
 			() => {
-				const queryOptions = this.highlightQuery(nextProps);
+				const queryOptions = CategorySearch.highlightQuery(nextProps);
 				queryOptions.size = nextProps.resultSize ? nextProps.resultSize : 20;
 				if (nextProps.resultFields) {
 					queryOptions._source = nextProps.resultFields;
@@ -167,7 +170,7 @@ class CategorySearch extends Component {
 		}
 	};
 
-	highlightQuery = (props) => {
+	static highlightQuery = (props) => {
 		if (props.customHighlight) {
 			return props.customHighlight(props);
 		}
@@ -196,7 +199,7 @@ class CategorySearch extends Component {
 		};
 	};
 
-	defaultQuery = (value, category, props) => {
+	static defaultQuery = (value, props, category) => {
 		let finalQuery = null;
 		let fields;
 
@@ -208,7 +211,7 @@ class CategorySearch extends Component {
 			}
 			finalQuery = {
 				bool: {
-					should: this.shouldQuery(value, fields, props),
+					should: CategorySearch.shouldQuery(value, fields, props),
 					minimum_should_match: '1',
 				},
 			};
@@ -234,7 +237,7 @@ class CategorySearch extends Component {
 		return finalQuery;
 	};
 
-	shouldQuery = (value, dataFields, props) => {
+	static shouldQuery = (value, dataFields, props) => {
 		const fields = dataFields.map((field, index) =>
 			`${field}${
 				Array.isArray(props.fieldWeights) && props.fieldWeights[index]
@@ -324,13 +327,13 @@ class CategorySearch extends Component {
 					this.handleTextChange(value);
 				}
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 		checkValueChange(
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
@@ -344,18 +347,14 @@ class CategorySearch extends Component {
 	}, this.props.debounce);
 
 	updateQuery = (componentId, value, props, category) => {
-		const query = props.customQuery || this.defaultQuery;
-		let onQueryChange = null;
-		if (componentId === props.componentId && props.onQueryChange) {
-			onQueryChange = props.onQueryChange;
-		}
+		const query = props.customQuery || CategorySearch.defaultQuery;
+
 		props.updateQuery({
 			componentId,
-			query: query(value, category, props),
+			query: query(value, props, category),
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -367,6 +366,10 @@ class CategorySearch extends Component {
 		if (this.props.onFocus) {
 			this.props.onFocus(event);
 		}
+	};
+
+	clearValue = () => {
+		this.setValue('', true);
 	};
 
 	// only works if there's a change in downshift's value
@@ -430,6 +433,31 @@ class CategorySearch extends Component {
 		return null;
 	};
 
+	renderCancelIcon = () => {
+		if (this.props.showClear) {
+			return this.props.clearIcon || <CancelSvg />;
+		}
+		return null;
+	}
+
+	renderIcons = () => (
+		<div>
+			{
+				this.state.currentValue && this.props.showClear
+				&& (
+					<InputIcon
+						onClick={this.clearValue}
+						iconPosition="right"
+						clearIcon={this.props.iconPosition === 'right'}
+					>
+						{this.renderCancelIcon()}
+					</InputIcon>
+				)
+			}
+			<InputIcon iconPosition={this.props.iconPosition}>{this.renderIcon()}</InputIcon>
+		</div>
+	);
+
 	render() {
 		let suggestionsList = [];
 		const { theme, themePreset } = this.props;
@@ -491,7 +519,7 @@ class CategorySearch extends Component {
 				)}
 				{this.props.autosuggest ? (
 					<Downshift
-						key='Downshift'
+						id={`${this.props.componentId}-downshift`}
 						onChange={this.onSuggestionSelected}
 						onOuterClick={this.handleOuterClick}
 						onStateChange={this.handleStateChange}
@@ -505,6 +533,8 @@ class CategorySearch extends Component {
 						}) => (
 							<div className={suggestionsContainer}>
 								<Input
+									showClear={this.props.showClear}
+									id={`${this.props.componentId}-input`}
 									showIcon={this.props.showIcon}
 									iconPosition={this.props.iconPosition}
 									innerRef={this.props.innerRef}
@@ -524,9 +554,7 @@ class CategorySearch extends Component {
 									})}
 									themePreset={themePreset}
 								/>
-								<InputIcon iconPosition={this.props.iconPosition}>
-									{this.renderIcon()}
-								</InputIcon>
+								{this.renderIcons()}
 								{isOpen && suggestionsList.length ? (
 									<ul
 										className={`${suggestions(themePreset, theme)} ${getClassName(this.props.innerClass, 'list')}`}
@@ -564,13 +592,12 @@ class CategorySearch extends Component {
 							onKeyUp={this.props.onKeyUp}
 							autoFocus={this.props.autoFocus}
 							iconPosition={this.props.iconPosition}
+							showClear={this.props.showClear}
 							showIcon={this.props.showIcon}
 							innerRef={this.props.innerRef}
 							themePreset={themePreset}
 						/>
-						<InputIcon iconPosition={this.props.iconPosition}>
-							{this.renderIcon()}
-						</InputIcon>
+						{this.renderIcons()}
 					</div>
 				)}
 			</Container>
@@ -581,6 +608,7 @@ class CategorySearch extends Component {
 CategorySearch.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -594,6 +622,7 @@ CategorySearch.propTypes = {
 	beforeValueChange: types.func,
 	categoryField: types.string,
 	className: types.string,
+	clearIcon: types.children,
 	componentId: types.stringRequired,
 	customHighlight: types.func,
 	customQuery: types.func,
@@ -623,13 +652,14 @@ CategorySearch.propTypes = {
 	react: types.react,
 	resultSize: types.number,
 	resultFields: types.dataFieldArray,
+	showClear: types.bool,
 	showFilter: types.bool,
 	showIcon: types.bool,
 	style: types.style,
 	title: types.title,
 	theme: types.style,
 	themePreset: types.themePreset,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 CategorySearch.defaultProps = {
@@ -639,6 +669,7 @@ CategorySearch.defaultProps = {
 	iconPosition: 'left',
 	placeholder: 'Search',
 	queryFormat: 'or',
+	showClear: false,
 	showFilter: true,
 	showIcon: true,
 	style: {},
@@ -651,12 +682,9 @@ const mapStateToProps = (state, props) => ({
 		&& state.aggregations[props.componentId][props.categoryField]
 		&& state.aggregations[props.componentId][props.categoryField].buckets
 	) || [],
-	selectedValue:
-	(state.selectedValues[props.componentId]
-		&& state.selectedValues[props.componentId].value)
-		|| null,
-	suggestions:
-			(state.hits[props.componentId] && state.hits[props.componentId].hits) || [],
+	selectedValue: (state.selectedValues[props.componentId]
+		&& state.selectedValues[props.componentId].value) || null,
+	suggestions: (state.hits[props.componentId] && state.hits[props.componentId].hits) || [],
 	themePreset: state.config.themePreset,
 });
 
@@ -665,6 +693,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props, execute) =>
 		dispatch(setQueryOptions(component, props, execute)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });

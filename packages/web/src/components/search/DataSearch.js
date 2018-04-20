@@ -8,6 +8,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	debounce,
@@ -23,6 +24,7 @@ import getSuggestions from '@appbaseio/reactivecore/lib/utils/suggestions';
 import Title from '../../styles/Title';
 import Input, { suggestionsContainer, suggestions } from '../../styles/Input';
 import SearchSvg from '../shared/SearchSvg';
+import CancelSvg from '../shared/CancelSvg';
 import InputIcon from '../../styles/InputIcon';
 import Container from '../../styles/Container';
 import { connect } from '../../utils';
@@ -39,6 +41,7 @@ class DataSearch extends Component {
 		};
 		this.internalComponent = `${props.componentId}__internal`;
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -46,7 +49,7 @@ class DataSearch extends Component {
 		this.props.addComponent(this.internalComponent);
 
 		if (this.props.highlight) {
-			const queryOptions = this.highlightQuery(this.props);
+			const queryOptions = DataSearch.highlightQuery(this.props);
 			queryOptions.size = 20;
 			this.props.setQueryOptions(this.props.componentId, queryOptions);
 		} else {
@@ -69,7 +72,7 @@ class DataSearch extends Component {
 			nextProps,
 			['highlight', 'dataField', 'highlightField'],
 			() => {
-				const queryOptions = this.highlightQuery(nextProps);
+				const queryOptions = DataSearch.highlightQuery(nextProps);
 				queryOptions.size = 20;
 				this.props.setQueryOptions(nextProps.componentId, queryOptions);
 			},
@@ -129,7 +132,7 @@ class DataSearch extends Component {
 		}
 	};
 
-	highlightQuery = (props) => {
+	static highlightQuery = (props) => {
 		if (props.customHighlight) {
 			return props.customHighlight(props);
 		}
@@ -156,7 +159,7 @@ class DataSearch extends Component {
 		};
 	};
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		let finalQuery = null;
 		let fields;
 
@@ -168,7 +171,7 @@ class DataSearch extends Component {
 			}
 			finalQuery = {
 				bool: {
-					should: this.shouldQuery(value, fields, props),
+					should: DataSearch.shouldQuery(value, fields, props),
 					minimum_should_match: '1',
 				},
 			};
@@ -183,7 +186,7 @@ class DataSearch extends Component {
 		return finalQuery;
 	};
 
-	shouldQuery = (value, dataFields, props) => {
+	static shouldQuery = (value, dataFields, props) => {
 		const fields = dataFields.map((field, index) =>
 			`${field}${
 				Array.isArray(props.fieldWeights) && props.fieldWeights[index]
@@ -272,13 +275,13 @@ class DataSearch extends Component {
 					this.handleTextChange(value);
 				}
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 		checkValueChange(
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
@@ -292,18 +295,14 @@ class DataSearch extends Component {
 	}, this.props.debounce);
 
 	updateQuery = (componentId, value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-		let onQueryChange = null;
-		if (componentId === props.componentId && props.onQueryChange) {
-			onQueryChange = props.onQueryChange;
-		}
+		const query = props.customQuery || DataSearch.defaultQuery;
+
 		props.updateQuery({
 			componentId,
 			query: query(value, props),
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -317,9 +316,17 @@ class DataSearch extends Component {
 		}
 	};
 
+	clearValue = () => {
+		this.setValue('', true);
+	};
+
 	// only works if there's a change in downshift's value
-	handleOuterClick = () => {
+	handleOuterClick = (event) => {
 		this.setValue(this.state.currentValue, true);
+
+		if (this.props.onBlur) {
+			this.props.onBlur(event);
+		}
 	};
 
 	handleKeyDown = (event) => {
@@ -378,6 +385,31 @@ class DataSearch extends Component {
 		return null;
 	}
 
+	renderCancelIcon = () => {
+		if (this.props.showClear) {
+			return this.props.clearIcon || <CancelSvg />;
+		}
+		return null;
+	}
+
+	renderIcons = () => (
+		<div>
+			{
+				this.state.currentValue && this.props.showClear
+				&& (
+					<InputIcon
+						onClick={this.clearValue}
+						iconPosition="right"
+						clearIcon={this.props.iconPosition === 'right'}
+					>
+						{this.renderCancelIcon()}
+					</InputIcon>
+				)
+			}
+			<InputIcon iconPosition={this.props.iconPosition}>{this.renderIcon()}</InputIcon>
+		</div>
+	);
+
 	render() {
 		let suggestionsList = [];
 
@@ -399,6 +431,7 @@ class DataSearch extends Component {
 				{
 					this.props.autosuggest
 						? (<Downshift
+							id={`${this.props.componentId}-downshift`}
 							onChange={this.onSuggestionSelected}
 							onOuterClick={this.handleOuterClick}
 							onStateChange={this.handleStateChange}
@@ -412,7 +445,9 @@ class DataSearch extends Component {
 							}) => (
 								<div className={suggestionsContainer}>
 									<Input
+										id={`${this.props.componentId}-input`}
 										showIcon={this.props.showIcon}
+										showClear={this.props.showClear}
 										iconPosition={this.props.iconPosition}
 										innerRef={this.props.innerRef}
 										{...getInputProps({
@@ -420,7 +455,7 @@ class DataSearch extends Component {
 											placeholder: this.props.placeholder,
 											value: this.state.currentValue === null ? '' : this.state.currentValue,
 											onChange: this.onInputChange,
-											onBlur: this.props.onBlur,
+											onBlur: this.handleOuterClick,
 											onFocus: this.handleFocus,
 											onKeyPress: this.props.onKeyPress,
 											onKeyDown: this.handleKeyDown,
@@ -428,7 +463,8 @@ class DataSearch extends Component {
 										})}
 										themePreset={themePreset}
 									/>
-									<InputIcon iconPosition={this.props.iconPosition}>{this.renderIcon()}</InputIcon>
+									{this.renderIcons()}
+
 									{
 										isOpen && suggestionsList.length
 											? (
@@ -482,10 +518,11 @@ class DataSearch extends Component {
 									autoFocus={this.props.autoFocus}
 									iconPosition={this.props.iconPosition}
 									showIcon={this.props.showIcon}
+									showClear={this.props.showClear}
 									innerRef={this.props.innerRef}
 									themePreset={themePreset}
 								/>
-								<InputIcon iconPosition={this.props.iconPosition}>{this.renderIcon()}</InputIcon>
+								{this.renderIcons()}
 							</div>
 						)
 				}
@@ -497,6 +534,7 @@ class DataSearch extends Component {
 DataSearch.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -508,6 +546,7 @@ DataSearch.propTypes = {
 	autosuggest: types.bool,
 	beforeValueChange: types.func,
 	className: types.string,
+	clearIcon: types.children,
 	componentId: types.stringRequired,
 	customHighlight: types.func,
 	customQuery: types.func,
@@ -535,13 +574,14 @@ DataSearch.propTypes = {
 	placeholder: types.string,
 	queryFormat: types.queryFormatSearch,
 	react: types.react,
+	showClear: types.bool,
 	showFilter: types.bool,
 	showIcon: types.bool,
 	style: types.style,
 	title: types.title,
 	theme: types.style,
 	themePreset: types.themePreset,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 DataSearch.defaultProps = {
@@ -555,6 +595,7 @@ DataSearch.defaultProps = {
 	showIcon: true,
 	style: {},
 	URLParams: false,
+	showClear: false,
 };
 
 const mapStateToProps = (state, props) => ({
@@ -570,6 +611,8 @@ const mapDispatchtoProps = dispatch => ({
 	setQueryOptions: (component, props) => dispatch(setQueryOptions(component, props)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(

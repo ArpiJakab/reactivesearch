@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	checkValueChange,
@@ -28,8 +29,8 @@ class SingleDataList extends Component {
 			currentValue: null,
 			searchTerm: '',
 		};
-		this.type = 'term';
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -76,8 +77,8 @@ class SingleDataList extends Component {
 		}
 	}
 
-	defaultQuery = (value, props) => {
-		if (this.props.selectAllLabel && this.props.selectAllLabel === value) {
+	static defaultQuery = (value, props) => {
+		if (props.selectAllLabel && props.selectAllLabel === value) {
 			return {
 				exists: {
 					field: props.dataField,
@@ -85,7 +86,7 @@ class SingleDataList extends Component {
 			};
 		} else if (value) {
 			return {
-				[this.type]: {
+				term: {
 					[props.dataField]: value,
 				},
 			};
@@ -102,7 +103,7 @@ class SingleDataList extends Component {
 		this.locked = true;
 		let value = nextValue;
 		if (nextValue === this.state.currentValue) {
-			value = '';
+			value = null;
 		}
 
 		const performUpdate = () => {
@@ -111,6 +112,7 @@ class SingleDataList extends Component {
 			}, () => {
 				this.updateQuery(value, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 
@@ -118,15 +120,12 @@ class SingleDataList extends Component {
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || SingleDataList.defaultQuery;
 
 		let currentValue = value;
 		if (value !== props.selectAllLabel) {
@@ -140,7 +139,6 @@ class SingleDataList extends Component {
 			value: currentValue ? value : null,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -221,7 +219,8 @@ class SingleDataList extends Component {
 										id={`${this.props.componentId}-${item.label}`}
 										name={this.props.componentId}
 										value={item.label}
-										onChange={this.handleClick}
+										onClick={this.handleClick}
+										readOnly
 										checked={this.state.currentValue === item.label}
 										show={this.props.showRadio}
 									/>
@@ -243,6 +242,7 @@ class SingleDataList extends Component {
 SingleDataList.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -267,7 +267,7 @@ SingleDataList.propTypes = {
 	style: types.style,
 	themePreset: types.themePreset,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 SingleDataList.defaultProps = {
@@ -291,6 +291,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(SingleDataList);
