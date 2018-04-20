@@ -52,17 +52,24 @@ class CategorySearch extends Component {
 	}
 
 	componentWillMount() {
+		//console.log('CategorySearch mount');
 		this.props.addComponent(this.props.componentId);
 		this.props.addComponent(this.internalComponent);
 
+		let size = this.props.resultSize ? this.props.resultSize : 20;
 		if (this.props.highlight) {
 			const queryOptions = this.highlightQuery(this.props);
-			queryOptions.size = 20;
+			queryOptions.size = size;
+			if (this.props.resultFields) {
+				queryOptions._source = this.props.resultFields;
+			}
 			this.props.setQueryOptions(this.props.componentId, queryOptions);
 		} else {
-			this.props.setQueryOptions(this.props.componentId, {
-				size: 20,
-			});
+			const queryOptions = { size: size };
+			if (this.props.resultFields) {
+				queryOptions._source = this.props.resultFields;
+			}
+			this.props.setQueryOptions(this.props.componentId, queryOptions);
 		}
 		this.setReact(this.props);
 
@@ -83,7 +90,10 @@ class CategorySearch extends Component {
 			['highlight', 'dataField', 'highlightField'],
 			() => {
 				const queryOptions = this.highlightQuery(nextProps);
-				queryOptions.size = 20;
+				queryOptions.size = nextProps.resultSize ? nextProps.resultSize : 20;
+				if (nextProps.resultFields) {
+					queryOptions._source = nextProps.resultFields;
+				}
 				this.props.setQueryOptions(nextProps.componentId, queryOptions);
 			},
 		);
@@ -132,6 +142,7 @@ class CategorySearch extends Component {
 	}
 
 	componentWillUnmount() {
+		//console.log('CategorySearch unmount');
 		this.props.removeComponent(this.props.componentId);
 		this.props.removeComponent(this.internalComponent);
 	}
@@ -470,7 +481,7 @@ class CategorySearch extends Component {
 		}
 
 		return (
-			<Container style={this.props.style} className={this.props.className}>
+			<Container key='CategorySearchRoot' style={this.props.style} className={this.props.className}>
 				{this.props.title && (
 					<Title
 						className={getClassName(this.props.innerClass, 'title') || null}
@@ -480,6 +491,7 @@ class CategorySearch extends Component {
 				)}
 				{this.props.autosuggest ? (
 					<Downshift
+						key='Downshift'
 						onChange={this.onSuggestionSelected}
 						onOuterClick={this.handleOuterClick}
 						onStateChange={this.handleStateChange}
@@ -609,6 +621,8 @@ CategorySearch.propTypes = {
 	placeholder: types.string,
 	queryFormat: types.queryFormatSearch,
 	react: types.react,
+	resultSize: types.number,
+	resultFields: types.dataFieldArray,
 	showFilter: types.bool,
 	showIcon: types.bool,
 	style: types.style,
