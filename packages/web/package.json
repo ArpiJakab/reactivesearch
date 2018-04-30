@@ -1,5 +1,5 @@
 {
-  "name": "@appbaseio/reactivesearch",
+  "name": "@arpijakab/reactivesearch",
   "version": "2.6.1",
   "description": "A React UI components library for building search experiences",
   "main": "lib/index.js",
