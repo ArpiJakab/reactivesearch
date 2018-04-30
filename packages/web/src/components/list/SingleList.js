@@ -6,6 +6,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	getQueryOptions,
@@ -31,12 +32,14 @@ class SingleList extends Component {
 
 		this.state = {
 			currentValue: '',
-			options: [],
+			options: (props.options && props.options[props.dataField])
+				? props.options[props.dataField].buckets
+				: [],
 			searchTerm: '',
 		};
-		this.type = 'term';
 		this.locked = false;
 		this.internalComponent = `${props.componentId}__internal`;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -108,7 +111,7 @@ class SingleList extends Component {
 		}
 	};
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		if (props.selectAllLabel && props.selectAllLabel === value) {
 			if (props.showMissing) {
 				return { match_all: {} };
@@ -129,7 +132,7 @@ class SingleList extends Component {
 				};
 			}
 			return {
-				[this.type]: {
+				term: {
 					[props.dataField]: value,
 				},
 			};
@@ -155,6 +158,7 @@ class SingleList extends Component {
 			}, () => {
 				this.updateQuery(value, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 
@@ -162,15 +166,12 @@ class SingleList extends Component {
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || SingleList.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -178,23 +179,27 @@ class SingleList extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
 
-	updateQueryOptions = (props) => {
+	static generateQueryOptions(props) {
 		const queryOptions = getQueryOptions(props);
 		queryOptions.aggs = {
 			[props.dataField]: {
 				terms: {
 					field: props.dataField,
 					size: props.size,
-					order: getAggsOrder(props.sortBy),
+					order: getAggsOrder(props.sortBy || 'count'),
 					...(props.showMissing ? { missing: props.missingLabel } : {}),
 				},
 			},
 		};
+		return queryOptions;
+	}
+
+	updateQueryOptions = (props) => {
+		const queryOptions = SingleList.generateQueryOptions(props);
 		props.setQueryOptions(this.internalComponent, queryOptions);
 	};
 
@@ -324,6 +329,7 @@ class SingleList extends Component {
 SingleList.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -353,7 +359,7 @@ SingleList.propTypes = {
 	style: types.style,
 	themePreset: types.themePreset,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 	showMissing: types.bool,
 	missingLabel: types.string,
 };
@@ -384,6 +390,8 @@ const mapDispatchtoProps = dispatch => ({
 	addComponent: component => dispatch(addComponent(component)),
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props) => dispatch(setQueryOptions(component, props)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });

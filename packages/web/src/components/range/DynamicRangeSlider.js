@@ -5,6 +5,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -37,6 +38,7 @@ class DynamicRangeSlider extends Component {
 		this.internalRangeComponent = `${this.props.componentId}__range__internal`;
 		this.internalMatchAllComponent = `${this.props.componentId}__match_all__internal`;
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -147,7 +149,13 @@ class DynamicRangeSlider extends Component {
 		}
 	};
 
-	defaultQuery = (value, props) => {
+	// value parser for SSR
+	static parseValue = value => (value
+		? [value().start, value().end]
+		: null
+	)
+
+	static defaultQuery = (value, props) => {
 		if (Array.isArray(value) && value.length) {
 			return {
 				range: {
@@ -222,8 +230,10 @@ class DynamicRangeSlider extends Component {
 			this.setState({
 				currentValue: normalizedValue,
 			}, () => {
-				this.updateQuery([normalizedValue[0], normalizedValue[1]], props);
+				const normalizedValues = [normalizedValue[0], normalizedValue[1]];
+				this.updateQuery(normalizedValues, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(normalizedValues);
 			});
 		};
 		checkValueChange(
@@ -233,7 +243,6 @@ class DynamicRangeSlider extends Component {
 				end: normalizedValue[1],
 			},
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
@@ -250,9 +259,7 @@ class DynamicRangeSlider extends Component {
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || DynamicRangeSlider.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -261,7 +268,6 @@ class DynamicRangeSlider extends Component {
 			label: props.filterLabel,
 			showFilter: false, // disable filters for DynamicRangeSlider
 			URLParams: props.URLParams,
-			onQueryChange,
 		});
 	};
 
@@ -273,7 +279,7 @@ class DynamicRangeSlider extends Component {
 
 			props.setQueryOptions(this.internalHistogramComponent, queryOptions, false);
 
-			const query = props.customQuery || this.defaultQuery;
+			const query = props.customQuery || DynamicRangeSlider.defaultQuery;
 
 			props.updateQuery({
 				componentId: this.internalHistogramComponent,
@@ -366,6 +372,7 @@ class DynamicRangeSlider extends Component {
 DynamicRangeSlider.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -392,7 +399,7 @@ DynamicRangeSlider.propTypes = {
 	stepValue: types.number,
 	style: types.style,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 DynamicRangeSlider.defaultProps = {
@@ -428,9 +435,10 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props, execute) =>
 		dispatch(setQueryOptions(component, props, execute)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
-	watchComponent: (component, react) =>
-		dispatch(watchComponent(component, react)),
+	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(DynamicRangeSlider);

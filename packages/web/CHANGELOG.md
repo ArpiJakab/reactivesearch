@@ -4,10 +4,34 @@
 
 <details>
     <summary>The following changes have been included in the <code>dev</code> branch and will be out in the next release. <b>Click to expand</b></summary>
-    - None so far
-
-
 </details>
+
+## v2.6.0
+
+- Fix `onSuggestion` rendering logic in search components [here](https://github.com/appbaseio/reactivesearch/commit/a2fa590710a77c9298b88a501074d08e326eb76e)
+- Add `onError` support in result components [here](https://github.com/appbaseio/reactivesearch/commit/6c01c872e9211339ad972b69296f2b1da1e4fa12)
+- Support toggling on integer based dropdown lists [#337](https://github.com/appbaseio/reactivesearch/commit/c10b5f222cd21e01b0208351f8d64c56e6eda148)
+- Fix and cleanup infinte loading logic in Result components [#336](https://github.com/appbaseio/reactivesearch/commit/b4835ea2d623667852fdd466690cf0d66ecba5cd)
+- Fix queryOptions generation logic in search components [here](https://github.com/appbaseio/reactivesearch/commit/88c850a8cc90060373a520ed73f01afc8ef05dce)
+- Better query generation support in core.
+- Fix complex react prop based query generation logic in core.
+
+
+## v2.5.1
+
+- Fix defaultQuery behavior in ReactiveComponent
+- fix [#329](https://github.com/appbaseio/reactivesearch/issues/329) - highlightQuery issue with SSR
+- update query logic for SSR
+- update URLParams prop type to bool
+
+## v2.5.0
+
+- Add dynamic defaultQuery support in ReactiveComponent [#313](https://github.com/appbaseio/reactivesearch/issues/313)
+- Fix an edge case with SingleDropdownList which threw React into an infinite update loop [#317](https://github.com/appbaseio/reactivesearch/issues/317)
+- Add support for `showClear` and `clearIcon` props in `TextField`, `DataSearch` and `CategorySearch` [#255](https://github.com/appbaseio/reactivesearch/issues/255)
+- Add support for combined queries via `msearch`
+- Add support for SSR
+- Fix onValueChange behavior
 
 ## v2.3.3
 

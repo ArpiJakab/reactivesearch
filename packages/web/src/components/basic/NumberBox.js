@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	checkValueChange,
@@ -28,6 +29,7 @@ class NumberBox extends Component {
 			currentValue: this.props.data.start,
 		};
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -60,7 +62,7 @@ class NumberBox extends Component {
 		this.props.removeComponent(this.props.componentId);
 	}
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		switch (props.queryFormat) {
 			case 'exact':
 				return {
@@ -77,7 +79,7 @@ class NumberBox extends Component {
 						},
 					},
 				};
-			case 'gte':
+			default:
 				return {
 					range: {
 						[props.dataField]: {
@@ -86,8 +88,6 @@ class NumberBox extends Component {
 						},
 					},
 				};
-			default:
-				return null;
 		}
 	};
 
@@ -126,27 +126,24 @@ class NumberBox extends Component {
 			}, () => {
 				this.updateQuery(value, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 		checkValueChange(
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || NumberBox.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
 			query: query(value, props),
 			value,
-			onQueryChange,
 			showFilter: false, // we don't need filters for NumberBox
 			URLParams: props.URLParams,
 		});
@@ -190,6 +187,7 @@ class NumberBox extends Component {
 NumberBox.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -206,7 +204,7 @@ NumberBox.propTypes = {
 	react: types.react,
 	style: types.style,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 NumberBox.defaultProps = {
@@ -228,6 +226,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(NumberBox);

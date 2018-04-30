@@ -6,6 +6,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	getQueryOptions,
@@ -32,9 +33,9 @@ class SingleDropdownList extends Component {
 			currentValue: '',
 			options: [],
 		};
-		this.type = 'term';
 		this.locked = false;
 		this.internalComponent = `${props.componentId}__internal`;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -106,9 +107,9 @@ class SingleDropdownList extends Component {
 		}
 	};
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		if (props.selectAllLabel && props.selectAllLabel === value) {
-			if (props.showMissing === true) {
+			if (props.showMissing) {
 				return { match_all: {} };
 			}
 			return {
@@ -127,7 +128,7 @@ class SingleDropdownList extends Component {
 				};
 			}
 			return {
-				[this.type]: {
+				term: {
 					[props.dataField]: value,
 				},
 			};
@@ -148,6 +149,7 @@ class SingleDropdownList extends Component {
 			}, () => {
 				this.updateQuery(value, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 
@@ -155,15 +157,12 @@ class SingleDropdownList extends Component {
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || SingleDropdownList.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -171,25 +170,29 @@ class SingleDropdownList extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
 
-	updateQueryOptions = (props) => {
+	static generateQueryOptions(props) {
 		const queryOptions = getQueryOptions(props);
 		queryOptions.aggs = {
 			[props.dataField]: {
 				terms: {
 					field: props.dataField,
 					size: props.size,
-					order: getAggsOrder(props.sortBy),
+					order: getAggsOrder(props.sortBy || 'count'),
 					...(props.showMissing ? { missing: props.missingLabel } : {}),
 				},
 			},
 		};
-		props.setQueryOptions(this.internalComponent, queryOptions);
+		return queryOptions;
 	}
+
+	updateQueryOptions = (props) => {
+		const queryOptions = SingleDropdownList.generateQueryOptions(props);
+		props.setQueryOptions(this.internalComponent, queryOptions);
+	};
 
 	render() {
 		let selectAll = [];
@@ -212,7 +215,9 @@ class SingleDropdownList extends Component {
 					items={
 						[
 							...selectAll,
-							...this.state.options.filter(item => String(item.key).trim().length),
+							...this.state.options
+								.filter(item => String(item.key).trim().length)
+								.map(item => ({ ...item, key: String(item.key) })),
 						]
 					}
 					onChange={this.setValue}
@@ -231,6 +236,7 @@ class SingleDropdownList extends Component {
 SingleDropdownList.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -258,7 +264,7 @@ SingleDropdownList.propTypes = {
 	style: types.style,
 	title: types.title,
 	themePreset: types.themePreset,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 	showMissing: types.bool,
 	missingLabel: types.string,
 };
@@ -279,7 +285,7 @@ SingleDropdownList.defaultProps = {
 const mapStateToProps = (state, props) => ({
 	options: state.aggregations[props.componentId],
 	selectedValue: (state.selectedValues[props.componentId]
-		&& state.selectedValues[props.componentId].value) || null,
+		&& state.selectedValues[props.componentId].value) || '',
 	themePreset: state.config.themePreset,
 });
 
@@ -287,6 +293,8 @@ const mapDispatchtoProps = dispatch => ({
 	addComponent: component => dispatch(addComponent(component)),
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props) => dispatch(setQueryOptions(component, props)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });

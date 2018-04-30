@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	checkValueChange,
@@ -30,19 +31,23 @@ class RatingsFilter extends Component {
 			currentValue: null,
 		};
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
 		this.props.addComponent(this.props.componentId);
 		this.setReact(this.props);
 
-		if (this.props.selectedValue) {
-			this.setValue(this.props.selectedValue);
-		} else if (this.props.defaultSelected) {
-			this.setValue([
-				this.props.defaultSelected.start,
-				this.props.defaultSelected.end,
-			]);
+		const { selectedValue, defaultSelected } = this.props;
+		if (selectedValue) {
+			if (Array.isArray(selectedValue)) {
+				this.setValue(selectedValue);
+			} else {
+				// for SSR
+				this.setValue(RatingsFilter.parseValue(selectedValue));
+			}
+		} else if (defaultSelected) {
+			this.setValue(RatingsFilter.parseValue(defaultSelected));
 		}
 	}
 
@@ -80,7 +85,13 @@ class RatingsFilter extends Component {
 		}
 	}
 
-	defaultQuery = (value, props) => {
+	// parses range label to get start and end
+	static parseValue = value => (value
+		? [value.start, value.end]
+		: null
+	)
+
+	static defaultQuery = (value, props) => {
 		if (value) {
 			return {
 				range: {
@@ -108,21 +119,19 @@ class RatingsFilter extends Component {
 			}, () => {
 				this.updateQuery(value, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(value);
 			});
 		};
 		checkValueChange(
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || RatingsFilter.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -130,7 +139,6 @@ class RatingsFilter extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: false,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -173,6 +181,7 @@ class RatingsFilter extends Component {
 RatingsFilter.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -191,7 +200,7 @@ RatingsFilter.propTypes = {
 	react: types.react,
 	style: types.style,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 RatingsFilter.defaultProps = {
@@ -210,6 +219,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(RatingsFilter);

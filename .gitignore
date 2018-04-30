@@ -8,3 +8,6 @@ stats.json
 .expo/
 .vscode/
 *.swp
+.next/
+packages/web/src/types.js.map
+

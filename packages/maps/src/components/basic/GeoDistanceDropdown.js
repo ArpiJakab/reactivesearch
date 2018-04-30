@@ -7,6 +7,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -47,6 +48,7 @@ class GeoDistanceDropdown extends Component {
 		if (props.autoLocation) {
 			this.getUserLocation();
 		}
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -209,6 +211,12 @@ class GeoDistanceDropdown extends Component {
 				this.getCoordinates(currentValue.value, () => {
 					if (this.state.currentDistance) {
 						this.updateQuery(this.state.currentDistance);
+						if (props.onValueChange) {
+							props.onValueChange({
+								label: this.getSelectedLabel(this.state.currentDistance),
+								location: currentValue.value,
+							});
+						}
 					}
 					this.locked = false;
 				});
@@ -219,7 +227,6 @@ class GeoDistanceDropdown extends Component {
 			props.componentId,
 			{ label: this.getSelectedLabel(this.state.currentDistance), location: currentValue.value },
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
@@ -234,7 +241,6 @@ class GeoDistanceDropdown extends Component {
 
 	updateQuery = (distance, props = this.props) => {
 		const query = props.customQuery || this.defaultQuery;
-		const { onQueryChange = null } = props;
 		const selectedDistance = this.getSelectedLabel(distance);
 		let value = null;
 		if (selectedDistance) {
@@ -250,7 +256,6 @@ class GeoDistanceDropdown extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -420,11 +425,15 @@ class GeoDistanceDropdown extends Component {
 
 GeoDistanceDropdown.propTypes = {
 	addComponent: types.funcRequired,
+	mapKey: types.stringRequired,
 	removeComponent: types.funcRequired,
+	selectedValue: types.selectedValue,
+	setQueryListener: types.funcRequired,
+	themePreset: types.themePreset,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
-	selectedValue: types.selectedValue,
 	// component props
+	autoLocation: types.bool,
 	beforeValueChange: types.func,
 	className: types.string,
 	componentId: types.stringRequired,
@@ -433,29 +442,26 @@ GeoDistanceDropdown.propTypes = {
 	dataField: types.stringRequired,
 	defaultSelected: types.selectedValue,
 	filterLabel: types.string,
+	icon: types.children,
+	iconPosition: types.iconPosition,
 	innerClass: types.style,
 	innerRef: types.func,
-	onQueryChange: types.func,
-	onValueChange: types.func,
-	placeholder: types.string,
-	react: types.react,
-	showFilter: types.bool,
-	style: types.style,
-	title: types.title,
-	URLParams: types.boolRequired,
-	unit: types.string,
-	showIcon: types.bool,
 	onBlur: types.func,
 	onFocus: types.func,
 	onKeyDown: types.func,
 	onKeyPress: types.func,
 	onKeyUp: types.func,
-	icon: types.children,
-	iconPosition: types.iconPosition,
-	mapKey: types.stringRequired,
-	autoLocation: types.boolRequired,
+	onQueryChange: types.func,
+	onValueChange: types.func,
+	placeholder: types.string,
+	react: types.react,
+	showFilter: types.bool,
+	showIcon: types.bool,
+	style: types.style,
 	theme: types.style,
-	themePreset: types.themePreset,
+	title: types.title,
+	unit: types.string,
+	URLParams: types.bool,
 };
 
 GeoDistanceDropdown.defaultProps = {
@@ -481,6 +487,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(

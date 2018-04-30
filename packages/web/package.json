@@ -1,8 +1,9 @@
 {
-  "name": "@appbaseio/reactivesearch",
-  "version": "2.3.3",
+  "name": "@arpijakab/reactivesearch",
+  "version": "2.6.1",
   "description": "A React UI components library for building search experiences",
   "main": "lib/index.js",
+  "typings": "./src/index.d.ts",
   "module": "lib/index.es.js",
   "js:next": "lib/index.es.js",
   "sideEffects": false,
@@ -18,18 +19,19 @@
     "build:umd": "BABEL_ENV=commonjs webpack --progress -p --config webpack.config.umd.js",
     "stats": "webpack --progress -p --config webpack.config.umd.js --json > stats.json",
     "prepublish": "yarn run build",
-    "test": "../../node_modules/jest/bin/jest.js --watch"
+    "test": "jest --watch",
+    "typescript": "tsc -p tsconfig.json"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/appbaseio/reactivesearch.git"
+    "url": "https://github.com/ArpiJakab/reactivesearch"
   },
   "author": "metagrover",
   "license": "Apache-2.0",
   "dependencies": {
-    "@appbaseio/reactivecore": "^1.4.2",
-    "appbase-js": "^2.2.11",
-    "downshift": "^1.22.1",
+    "@appbaseio/reactivecore": "^2.1.0",
+    "appbase-js": "^3.0.0",
+    "downshift": "^1.31.2",
     "emotion": "^9.0.0",
     "emotion-theming": "^9.0.0",
     "prop-types": "^15.6.0",
@@ -46,6 +48,7 @@
     "react-dom": ">=15"
   },
   "devDependencies": {
+    "@types/react": "^16.3.8",
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-loader": "^7.1.2",
@@ -57,10 +60,15 @@
     "babili-webpack-plugin": "^0.1.2",
     "brotli-webpack-plugin": "^0.5.0",
     "compression-webpack-plugin": "^1.0.1",
-    "eslint-plugin-jest": "^21.12.2",
+    "eslint-plugin-jest": "^21.15.1",
     "jest": "^22.4.2",
     "react": "^16.1.1",
     "react-dom": "^16.1.1",
+    "tslint": "^5.9.1",
+    "typescript": "^2.8.1",
     "webpack": "^3.2.0"
+  },
+  "resolutions": {
+    "@types/react": "16.3.7"
   }
 }

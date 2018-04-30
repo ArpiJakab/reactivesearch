@@ -6,6 +6,7 @@ import {
 	watchComponent,
 	updateQuery,
 	setQueryOptions,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -32,11 +33,14 @@ class TagCloud extends Component {
 
 		this.state = {
 			currentValue: {},
-			options: [],
+			options: (props.options && props.options[props.dataField])
+				? props.options[props.dataField].buckets
+				: [],
 		};
 		this.locked = false;
 		this.type = 'term';
 		this.internalComponent = `${props.componentId}__internal`;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -114,7 +118,7 @@ class TagCloud extends Component {
 		}
 	};
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		let query = null;
 		let type = props.queryFormat === 'or' ? 'terms' : 'term';
 		type = props.multiSelect ? type : 'term';
@@ -188,6 +192,7 @@ class TagCloud extends Component {
 			}, () => {
 				this.updateQuery(finalValues, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(finalValues);
 			});
 		};
 
@@ -195,15 +200,12 @@ class TagCloud extends Component {
 			props.componentId,
 			finalValues,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || TagCloud.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -211,22 +213,27 @@ class TagCloud extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
 
-	updateQueryOptions = (props) => {
+	static generateQueryOptions(props) {
 		const queryOptions = getQueryOptions(props);
 		queryOptions.aggs = {
 			[props.dataField]: {
 				terms: {
 					field: props.dataField,
 					size: props.size,
-					order: getAggsOrder(props.sortBy),
+					order: getAggsOrder(props.sortBy || 'asc'),
 				},
 			},
 		};
+
+		return queryOptions;
+	}
+
+	updateQueryOptions = (props) => {
+		const queryOptions = TagCloud.generateQueryOptions(props);
 		props.setQueryOptions(this.internalComponent, queryOptions);
 	};
 
@@ -284,6 +291,7 @@ class TagCloud extends Component {
 TagCloud.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	setQueryOptions: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
@@ -309,7 +317,7 @@ TagCloud.propTypes = {
 	sortBy: types.sortByWithCount,
 	style: types.style,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 TagCloud.defaultProps = {
@@ -333,6 +341,8 @@ const mapDispatchtoProps = dispatch => ({
 	addComponent: component => dispatch(addComponent(component)),
 	removeComponent: component => dispatch(removeComponent(component)),
 	setQueryOptions: (component, props) => dispatch(setQueryOptions(component, props)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });

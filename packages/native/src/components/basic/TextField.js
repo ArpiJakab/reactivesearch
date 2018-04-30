@@ -6,6 +6,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	debounce,
@@ -26,6 +27,7 @@ class TextField extends Component {
 		this.state = {
 			currentValue: '',
 		};
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -73,27 +75,29 @@ class TextField extends Component {
 		return null;
 	}
 
-	handleTextChange = debounce((value) => {
+	handleTextChange = debounce((value, props) => {
 		this.updateQuery(value, this.props);
+		if (props.onValueChange) props.onValueChange(value);
 	}, this.props.debounce);
 
 	setValue = (value, isDefaultValue = false, props = this.props) => {
 		const performUpdate = () => {
 			this.setState({
 				currentValue: value,
+			}, () => {
+				if (isDefaultValue) {
+					this.updateQuery(value, props);
+					if (props.onValueChange) props.onValueChange(value);
+				} else {
+					// debounce for handling text while typing
+					this.handleTextChange(value, props);
+				}
 			});
-			if (isDefaultValue) {
-				this.updateQuery(value, props);
-			} else {
-				// debounce for handling text while typing
-				this.handleTextChange(value);
-			}
 		};
 		checkValueChange(
 			props.componentId,
 			value,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
@@ -101,15 +105,12 @@ class TextField extends Component {
 	updateQuery = (value, props) => {
 		const query = props.customQuery || this.defaultQuery;
 
-		const { onQueryChange = null } = props;
-
 		props.updateQuery({
 			componentId: props.componentId,
 			query: query(value, props),
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: false,
 		});
 	};
@@ -221,6 +222,7 @@ TextField.propTypes = {
 	defaultSelected: types.string,
 	react: types.react,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	dataField: types.stringRequired,
 	beforeValueChange: types.func,
 	onValueChange: types.func,
@@ -263,6 +265,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(withTheme(TextField));

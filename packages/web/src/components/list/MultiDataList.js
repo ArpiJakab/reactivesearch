@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -31,6 +32,7 @@ class MultiDataList extends Component {
 		};
 		this.type = 'term';
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -185,6 +187,7 @@ class MultiDataList extends Component {
 			}, () => {
 				this.updateQuery(finalValues, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(finalValues);
 			});
 		};
 
@@ -192,15 +195,12 @@ class MultiDataList extends Component {
 			props.componentId,
 			finalValues,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
 		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
 
 		// find the corresponding value of the label for running the query
 		const queryValue = value.reduce((acc, item) => {
@@ -217,7 +217,6 @@ class MultiDataList extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -321,6 +320,7 @@ class MultiDataList extends Component {
 MultiDataList.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -346,7 +346,7 @@ MultiDataList.propTypes = {
 	style: types.style,
 	themePreset: types.themePreset,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 MultiDataList.defaultProps = {
@@ -371,6 +371,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(MultiDataList);

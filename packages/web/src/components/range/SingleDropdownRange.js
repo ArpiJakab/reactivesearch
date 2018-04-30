@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -29,6 +30,7 @@ class SingleDropdownRange extends Component {
 		};
 		this.type = 'range';
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -70,7 +72,10 @@ class SingleDropdownRange extends Component {
 		}
 	}
 
-	defaultQuery = (value, props) => {
+	// parses range label to get start and end
+	static parseValue = (value, props) => props.data.find(item => item.label === value) || null
+
+	static defaultQuery = (value, props) => {
 		if (value) {
 			return {
 				range: {
@@ -95,6 +100,7 @@ class SingleDropdownRange extends Component {
 		let currentValue = value;
 		if (isDefaultValue) {
 			currentValue = props.data.find(item => item.label === value) || null;
+			currentValue = SingleDropdownRange.parseValue(value, props);
 		}
 
 		const performUpdate = () => {
@@ -103,6 +109,7 @@ class SingleDropdownRange extends Component {
 			}, () => {
 				this.updateQuery(currentValue, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(currentValue);
 			});
 		};
 
@@ -110,15 +117,12 @@ class SingleDropdownRange extends Component {
 			props.componentId,
 			currentValue,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || SingleDropdownRange.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -126,7 +130,6 @@ class SingleDropdownRange extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -153,6 +156,7 @@ class SingleDropdownRange extends Component {
 SingleDropdownRange.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -174,7 +178,7 @@ SingleDropdownRange.propTypes = {
 	style: types.style,
 	title: types.title,
 	themePreset: types.themePreset,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 SingleDropdownRange.defaultProps = {
@@ -198,6 +202,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(SingleDropdownRange);

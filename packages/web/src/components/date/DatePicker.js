@@ -4,6 +4,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -30,6 +31,7 @@ class DatePicker extends Component {
 			currentDate: '',
 		};
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -94,7 +96,7 @@ class DatePicker extends Component {
 
 	formatInputDate = date => new XDate(date).toString('yyyy-MM-dd');
 
-	defaultQuery = (value, props) => {
+	static defaultQuery = (value, props) => {
 		let query = null;
 		if (value && props.queryFormat) {
 			query = {
@@ -145,22 +147,20 @@ class DatePicker extends Component {
 				}, () => {
 					this.updateQuery(value, props);
 					this.locked = false;
+					if (props.onValueChange) props.onValueChange(value);
 				});
 			};
 			checkValueChange(
 				props.componentId,
 				value,
 				props.beforeValueChange,
-				props.onValueChange,
 				performUpdate,
 			);
 		}
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || DatePicker.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -168,7 +168,6 @@ class DatePicker extends Component {
 			value,
 			showFilter: props.showFilter,
 			label: props.filterLabel,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -236,6 +235,7 @@ class DatePicker extends Component {
 DatePicker.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -280,8 +280,9 @@ const mapDispatchtoProps = dispatch => ({
 	addComponent: component => dispatch(addComponent(component)),
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
-	watchComponent: (component, react) =>
-		dispatch(watchComponent(component, react)),
+	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(

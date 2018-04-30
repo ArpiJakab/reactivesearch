@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -32,6 +33,7 @@ class MultiDropdownRange extends Component {
 		this.selectedValues = {};
 		this.type = 'range';
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -74,7 +76,12 @@ class MultiDropdownRange extends Component {
 		}
 	}
 
-	defaultQuery = (values, props) => {
+	// parses range label to get start and end
+	static parseValue = (value, props) => (value
+		? props.data.filter(item => value.includes(item.label))
+		: null)
+
+	static defaultQuery = (values, props) => {
 		const generateRangeQuery = (dataField, items) => {
 			if (items.length > 0) {
 				return items.map(value => ({
@@ -117,7 +124,7 @@ class MultiDropdownRange extends Component {
 			this.selectedValues = {};
 		} else if (isDefaultValue) {
 			// checking if the items in defaultSeleted exist in the data prop
-			currentValue = props.data.filter(value => item.includes(value.label));
+			currentValue = MultiDropdownRange.parseValue(item, props);
 			currentValue.forEach((value) => {
 				this.selectedValues = { ...this.selectedValues, [value.label]: true };
 			});
@@ -135,6 +142,7 @@ class MultiDropdownRange extends Component {
 			}, () => {
 				this.updateQuery(currentValue, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(currentValue);
 			});
 		};
 
@@ -142,15 +150,12 @@ class MultiDropdownRange extends Component {
 			props.componentId,
 			currentValue,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || MultiDropdownRange.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -158,7 +163,6 @@ class MultiDropdownRange extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -186,6 +190,7 @@ class MultiDropdownRange extends Component {
 MultiDropdownRange.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -207,7 +212,7 @@ MultiDropdownRange.propTypes = {
 	style: types.style,
 	title: types.title,
 	themePreset: types.themePreset,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 MultiDropdownRange.defaultProps = {
@@ -230,6 +235,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(MultiDropdownRange);

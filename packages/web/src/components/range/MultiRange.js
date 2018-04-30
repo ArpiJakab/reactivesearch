@@ -5,6 +5,7 @@ import {
 	removeComponent,
 	watchComponent,
 	updateQuery,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -33,6 +34,7 @@ class MultiRange extends Component {
 
 		this.type = 'range';
 		this.locked = false;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentWillMount() {
@@ -75,7 +77,12 @@ class MultiRange extends Component {
 		}
 	}
 
-	defaultQuery = (values, props) => {
+	// parses range label to get start and end
+	static parseValue = (value, props) => (value
+		? props.data.filter(item => value.includes(item.label))
+		: null)
+
+	static defaultQuery = (values, props) => {
 		const generateRangeQuery = (dataField, items) => {
 			if (items.length > 0) {
 				return items.map(value => ({
@@ -118,7 +125,7 @@ class MultiRange extends Component {
 			selectedValues = {};
 		} else if (isDefaultValue) {
 			// checking if the items in defaultSeleted exist in the data prop
-			currentValue = props.data.filter(value => item.includes(value.label));
+			currentValue = MultiRange.parseValue(item, props);
 			currentValue.forEach((value) => {
 				selectedValues = { ...selectedValues, [value.label]: true };
 			});
@@ -138,6 +145,7 @@ class MultiRange extends Component {
 			}, () => {
 				this.updateQuery(currentValue, props);
 				this.locked = false;
+				if (props.onValueChange) props.onValueChange(currentValue);
 			});
 		};
 
@@ -145,7 +153,6 @@ class MultiRange extends Component {
 			props.componentId,
 			currentValue,
 			props.beforeValueChange,
-			props.onValueChange,
 			performUpdate,
 		);
 	}
@@ -157,9 +164,7 @@ class MultiRange extends Component {
 	};
 
 	updateQuery = (value, props) => {
-		const query = props.customQuery || this.defaultQuery;
-
-		const { onQueryChange = null } = props;
+		const query = props.customQuery || MultiRange.defaultQuery;
 
 		props.updateQuery({
 			componentId: props.componentId,
@@ -167,7 +172,6 @@ class MultiRange extends Component {
 			value,
 			label: props.filterLabel,
 			showFilter: props.showFilter,
-			onQueryChange,
 			URLParams: props.URLParams,
 		});
 	};
@@ -211,6 +215,7 @@ class MultiRange extends Component {
 MultiRange.propTypes = {
 	addComponent: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
 	updateQuery: types.funcRequired,
 	watchComponent: types.funcRequired,
 	selectedValue: types.selectedValue,
@@ -233,7 +238,7 @@ MultiRange.propTypes = {
 	style: types.style,
 	supportedOrientations: types.supportedOrientations,
 	title: types.title,
-	URLParams: types.boolRequired,
+	URLParams: types.bool,
 };
 
 MultiRange.defaultProps = {
@@ -255,6 +260,8 @@ const mapDispatchtoProps = dispatch => ({
 	removeComponent: component => dispatch(removeComponent(component)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 });
 
 export default connect(mapStateToProps, mapDispatchtoProps)(MultiRange);

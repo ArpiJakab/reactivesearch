@@ -11,6 +11,7 @@ import {
 	updateQuery,
 	loadMore,
 	setMapData,
+	setQueryListener,
 } from '@appbaseio/reactivecore/lib/actions';
 import {
 	isEqual,
@@ -81,12 +82,12 @@ class ReactiveMap extends Component {
 		};
 		this.mapRef = null;
 		this.internalComponent = `${props.componentId}__internal`;
+		props.setQueryListener(props.componentId, props.onQueryChange, null);
 	}
 
 	componentDidMount() {
 		this.props.addComponent(this.internalComponent);
 		this.props.addComponent(this.props.componentId);
-		this.props.setMapData(this.props.componentId, null, !!this.props.center);
 
 		if (this.props.stream) {
 			this.props.setStreaming(this.props.componentId, true);
@@ -109,6 +110,13 @@ class ReactiveMap extends Component {
 			if (this.defaultQuery.sort) {
 				options.sort = this.defaultQuery.sort;
 			}
+			this.props.setMapData(
+				this.props.componentId,
+				this.defaultQuery.query,
+				!!this.defaultQuery.query,
+			);
+		} else {
+			this.props.setMapData(this.props.componentId, null, !!this.props.center);
 		}
 
 		this.props.setQueryOptions(
@@ -117,19 +125,6 @@ class ReactiveMap extends Component {
 			!(this.defaultQuery && this.defaultQuery.query),
 		);
 		this.setReact(this.props);
-
-		if (this.defaultQuery) {
-			const { sort, ...query } = this.defaultQuery;
-			this.props.updateQuery({
-				componentId: this.internalComponent,
-				query,
-			});
-		} else {
-			this.props.updateQuery({
-				componentId: this.internalComponent,
-				query: null,
-			});
-		}
 	}
 
 	componentWillReceiveProps(nextProps) {
@@ -172,17 +167,18 @@ class ReactiveMap extends Component {
 			options.from = this.state.from;
 			this.defaultQuery = nextProps.defaultQuery();
 
-			const { sort, ...query } = this.defaultQuery;
+			const { sort, query } = this.defaultQuery;
 
 			if (sort) {
 				options.sort = this.defaultQuery.sort;
 				nextProps.setQueryOptions(nextProps.componentId, options, !query);
 			}
 
-			this.props.updateQuery({
-				componentId: this.internalComponent,
+			this.props.setMapData(
+				this.props.componentId,
 				query,
-			});
+				!!query,
+			);
 		}
 
 		if (this.props.stream !== nextProps.stream) {
@@ -816,6 +812,8 @@ ReactiveMap.propTypes = {
 	setMapData: types.funcRequired,
 	loadMore: types.funcRequired,
 	removeComponent: types.funcRequired,
+	setQueryListener: types.funcRequired,
+	onQueryChange: types.func,
 	setPageURL: types.func,
 	setQueryOptions: types.funcRequired,
 	setStreaming: types.func,
@@ -829,41 +827,41 @@ ReactiveMap.propTypes = {
 	total: types.number,
 	url: types.string,
 	// component props
+	autoCenter: types.bool,
+	center: types.location,
 	className: types.string,
 	componentId: types.stringRequired,
 	dataField: types.stringRequired,
+	defaultCenter: types.location,
+	defaultMapStyle: types.string,
+	defaultPin: types.string,
 	defaultQuery: types.func,
+	defaultZoom: types.number,
 	innerClass: types.style,
+	innerRef: types.func,
 	loader: types.title,
-	onData: types.func,
+	mapProps: types.props,
+	markerProps: types.props,
+	markers: types.children,
 	onAllData: types.func,
+	onData: types.func,
+	onPageChange: types.func,
+	onPopoverClick: types.func,
 	pages: types.number,
 	pagination: types.bool,
 	react: types.react,
+	searchAsMove: types.bool,
+	showMapStyles: types.bool,
+	showMarkerClusters: types.bool,
+	showMarkers: types.bool,
+	showSearchAsMove: types.bool,
 	size: types.number,
 	sortBy: types.sortBy,
 	sortOptions: types.sortOptions,
 	stream: types.bool,
+	streamAutoCenter: types.bool,
 	style: types.style,
 	URLParams: types.bool,
-	defaultPin: types.string,
-	defaultCenter: types.location,
-	center: types.location,
-	showMapStyles: types.bool,
-	autoCenter: types.bool,
-	streamAutoCenter: types.bool,
-	defaultZoom: types.number,
-	mapProps: types.props,
-	markerProps: types.props,
-	markers: types.children,
-	searchAsMove: types.bool,
-	showSearchAsMove: types.bool,
-	defaultMapStyle: types.string,
-	onPopoverClick: types.func,
-	showMarkers: types.bool,
-	showMarkerClusters: types.bool,
-	onPageChange: types.func,
-	innerRef: types.func,
 };
 
 ReactiveMap.defaultProps = {
@@ -909,6 +907,8 @@ const mapDispatchtoProps = dispatch => ({
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 	setQueryOptions: (component, props, execute) =>
 		dispatch(setQueryOptions(component, props, execute)),
+	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
+		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
 	loadMore: (component, options, append) => dispatch(loadMore(component, options, append)),
 	setMapData: (component, geoQuery, mustExecute) =>
