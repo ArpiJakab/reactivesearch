@@ -61,11 +61,8 @@ class CategorySearch extends Component {
 
 		let size = this.props.resultSize ? this.props.resultSize : 20;
 		if (this.props.highlight) {
-			const queryOptions = CategorySearch.highlightQuery(this.props);
+			const queryOptions = CategorySearch.highlightQuery(this.props) || {};
 			queryOptions.size = size;
-			if (this.props.resultFields) {
-				queryOptions._source = this.props.resultFields;
-			}
 			this.props.setQueryOptions(this.props.componentId, queryOptions);
 		} else {
 			const queryOptions = { size: size };
@@ -92,11 +89,8 @@ class CategorySearch extends Component {
 			nextProps,
 			['highlight', 'dataField', 'highlightField'],
 			() => {
-				const queryOptions = CategorySearch.highlightQuery(nextProps);
+				const queryOptions = CategorySearch.highlightQuery(nextProps) || {};
 				queryOptions.size = nextProps.resultSize ? nextProps.resultSize : 20;
-				if (nextProps.resultFields) {
-					queryOptions._source = nextProps.resultFields;
-				}
 				this.props.setQueryOptions(nextProps.componentId, queryOptions);
 			},
 		);
@@ -289,7 +283,7 @@ class CategorySearch extends Component {
 
 	onSuggestions = (searchSuggestions) => {
 		if (this.props.onSuggestion) {
-			return this.props.onSuggestion(searchSuggestions);
+			return searchSuggestions.map(suggestion => this.props.onSuggestion(suggestion));
 		}
 
 		const fields = Array.isArray(this.props.dataField)
@@ -562,7 +556,7 @@ class CategorySearch extends Component {
 										{suggestionsList.slice(0, 10).map((item, index) => (
 											<li
 												{...getItemProps({ item })}
-												key={item.label}
+												key={`${index + 1}-${item.value}`}
 												style={{
 													backgroundColor: this.getBackgroundColor(
 														highlightedIndex,

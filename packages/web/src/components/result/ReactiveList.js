@@ -44,7 +44,7 @@ class ReactiveList extends Component {
 			currentPage,
 		};
 		this.internalComponent = `${props.componentId}__internal`;
-		props.setQueryListener(props.componentId, props.onQueryChange, null);
+		props.setQueryListener(props.componentId, props.onQueryChange, props.onError);
 	}
 
 	componentDidMount() {
@@ -80,25 +80,34 @@ class ReactiveList extends Component {
 			}
 		}
 
+		const { sort, ...query } = this.defaultQuery || {};
+
+		// execute is set to false at the time of mount
+		// to avoid firing (multiple) partial queries.
+		// Hence we are building the query in parts here
+		// and only executing it with setReact() at core
+		const execute = false;
+
 		this.props.setQueryOptions(
 			this.props.componentId,
 			options,
-			!(this.defaultQuery && this.defaultQuery.query),
+			execute,
 		);
-		this.setReact(this.props);
 
 		if (this.defaultQuery) {
-			const { sort, ...query } = this.defaultQuery;
 			this.props.updateQuery({
 				componentId: this.internalComponent,
 				query,
-			});
+			}, execute);
 		} else {
 			this.props.updateQuery({
 				componentId: this.internalComponent,
 				query: null,
-			});
+			}, execute);
 		}
+
+		// query will be executed here
+		this.setReact(this.props);
 
 		if (!this.props.pagination) {
 			window.addEventListener('scroll', this.scrollHandler);
@@ -150,7 +159,7 @@ class ReactiveList extends Component {
 			this.props.updateQuery({
 				componentId: this.internalComponent,
 				query,
-			});
+			}, true);
 		}
 
 		if (this.props.stream !== nextProps.stream) {
@@ -183,31 +192,29 @@ class ReactiveList extends Component {
 			}
 		}
 
-		if (
-			!nextProps.pagination
-			&& this.props.hits
-			&& nextProps.hits
-			&& (
-				this.props.hits.length < nextProps.hits.length
-				|| nextProps.hits.length === nextProps.total
-			)
-		) {
-			this.setState({
-				isLoading: false,
-			});
-		}
+		if (!nextProps.pagination) {
+			if (this.props.hits && nextProps.hits) {
+				if (
+					this.props.hits.length !== nextProps.hits.length
+					|| nextProps.hits.length === nextProps.total
+				) {
+					this.setState({
+						isLoading: false,
+					});
 
-		if (
-			!nextProps.pagination
-			&& nextProps.hits
-			&& this.props.hits
-			&& nextProps.hits.length < this.props.hits.length
-		) {
-			window.scrollTo(0, 0);
-			this.setState({
-				from: 0,
-				isLoading: false,
-			});
+					if (nextProps.hits.length < this.props.hits.length) {
+						// query has changed
+						window.scrollTo(0, 0);
+						this.setState({
+							from: 0,
+						});
+					}
+				}
+			} else if ((!this.props.hits || !this.props.hits.length) && nextProps.hits) {
+				this.setState({
+					isLoading: false,
+				});
+			}
 		}
 
 		if (nextProps.pagination && nextProps.total !== this.props.total) {
@@ -480,6 +487,7 @@ ReactiveList.propTypes = {
 	removeComponent: types.funcRequired,
 	setQueryListener: types.funcRequired,
 	onQueryChange: types.func,
+	onError: types.func,
 	setPageURL: types.func,
 	setQueryOptions: types.funcRequired,
 	setStreaming: types.func,
@@ -556,7 +564,7 @@ const mapDispatchtoProps = dispatch => ({
 	setQueryListener: (component, onQueryChange, beforeQueryChange) =>
 		dispatch(setQueryListener(component, onQueryChange, beforeQueryChange)),
 	setStreaming: (component, stream) => dispatch(setStreaming(component, stream)),
-	updateQuery: updateQueryObject => dispatch(updateQuery(updateQueryObject)),
+	updateQuery: (updateQueryObject, execute) => dispatch(updateQuery(updateQueryObject, execute)),
 	watchComponent: (component, react) => dispatch(watchComponent(component, react)),
 });
 
